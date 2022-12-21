@@ -8,7 +8,7 @@ name: Deploy to Amazon Ecs by Clouddley
             - main
 env:
     AWS_REGION: eu-west-1
-    ECR_REPOSITORY: clouddley-helloapp
+    ECR_REPOSITORY: clouddley-dfghjk
 jobs:
     deploy:
         name: Deploy
