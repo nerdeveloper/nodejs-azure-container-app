@@ -8,14 +8,14 @@ name: Deploy to Amazon Ecs by Clouddley
             - main
 env:
     AWS_REGION: eu-west-1
-    ECR_REPOSITORY: clouddley-sdsgwfgfwdgh
+    ECR_REPOSITORY: clouddley-helloapp
 jobs:
     deploy:
         name: Deploy
         runs-on: ubuntu-latest
         outputs:
             image_uri: ${{ steps.build_image.outputs.image }}
-        environment: prod
+        environment: dev
         steps:
             - name: checkout
               uses: actions/checkout@v3
