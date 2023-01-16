@@ -7,8 +7,8 @@ name: Deploy to Amazon Ecs by Clouddley
         branches:
             - main
 env:
-    AWS_REGION: eu-west-1
-    ECR_REPOSITORY: clouddley-dfghjk
+    AWS_REGION: us-west-2
+    ECR_REPOSITORY: clouddley-helloapp1
 jobs:
     deploy:
         name: Deploy
