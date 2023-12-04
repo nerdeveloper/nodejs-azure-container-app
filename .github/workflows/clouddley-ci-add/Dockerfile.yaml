@@ -1,0 +1,70 @@
+name: Deploy to Amazon Ecs by Clouddley
+"on":
+    push:
+        branches:
+            - add/Dockerfile
+    workflow_dispatch:
+        branches:
+            - add/Dockerfile
+env:
+    AWS_REGION: us-west-2
+    ECR_REPOSITORY: clouddley-testapplication
+jobs:
+    deploy:
+        name: Deploy
+        runs-on: ubuntu-latest
+        outputs:
+            image_uri: ${{ steps.build_image.outputs.image }}
+        environment: dev
+        steps:
+            - name: checkout
+              uses: actions/checkout@v3
+            - name: Configure AWS credentials
+              uses: aws-actions/configure-aws-credentials@v2
+              with:
+                aws-access-key-id: ${{ secrets.DEV_AWS_ACCESS_KEY_ID }}
+                aws-region: ${{ env.AWS_REGION }}
+                aws-secret-access-key: ${{ secrets.DEV_AWS_SECRET_ACCESS_KEY }}
+            - name: Login to Amazon ECR
+              uses: aws-actions/amazon-ecr-login@v1
+              id: login-ecr
+            - name: Docker layer caching
+              uses: jpribyl/action-docker-layer-caching@v0.1.1
+              continue-on-error: true
+              with:
+                key: ${{ runner.os }}-docker-${{ hashFiles('**/Dockerfile') }}
+                restore-keys: ${{ runner.os }}-docker-
+            - name: Build, tag, and push image to Amazon ECR
+              env:
+                ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+                IMAGE_TAG: latest
+                SECRET: ${{ secrets.PGP_PASSPHRASE }}
+              id: build_image
+              run: |-
+                docker build -f Dockerfile -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
+                docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+                BUILD_IMAGE=$( echo "$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG" | base64 -w0 )
+                echo "::add-mask::$BUILD_IMAGE"
+                image_encrypted=$(gpg --symmetric --batch --passphrase "$SECRET" --output - <(echo "$BUILD_IMAGE") | base64 -w0)
+                echo "image=$image_encrypted" >> $GITHUB_OUTPUT
+    ping:
+        name: Set Marker
+        runs-on: ubuntu-latest
+        needs: deploy
+        steps:
+            - name: Set Header Value
+              env:
+                SECRET: ${{ secrets.PGP_PASSPHRASE }}
+              id: set-header-env
+              run: |-
+                echo "${{ needs.deploy.outputs.image_uri }}" | base64 --decode
+                decrypted_image=$(gpg --decrypt --quiet --batch --passphrase "$SECRET" --output - <(echo "${{ needs.deploy.outputs.image_uri }}" | base64 --decode))
+                echo "image_uri=$decrypted_image" >> $GITHUB_ENV
+            - name: Notification stage
+              uses: fjogeleit/http-request-action@v1
+              with:
+                bearerToken: ${{ secrets.DEV_CLOUDDLEY_TOKEN }}
+                customHeaders: '{"X-Image-URI":"${{ env.image_uri }}"}'
+                method: POST
+                timeout: "18000"
+                url: ${{ secrets.CLOUDDLEY_URL }}
