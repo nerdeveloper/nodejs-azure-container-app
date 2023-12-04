@@ -8,7 +8,7 @@ name: Deploy to Amazon Ecs by Clouddley
             - add/Dockerfile
 env:
     AWS_REGION: us-west-2
-    ECR_REPOSITORY: clouddley-testapplication
+    ECR_REPOSITORY: clouddley-testapplication2
 jobs:
     deploy:
         name: Deploy
